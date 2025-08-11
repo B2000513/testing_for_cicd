@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wso2mi-deployment
+  namespace: ian
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wso2mi
+  template:
+    metadata:
+      labels:
+        app: wso2mi
+    spec:
+      containers:
+        - name: wso2mi
+          image: testing:1.0.0
+          ports:
+            - containerPort: 8290
+            - containerPort: 8253
