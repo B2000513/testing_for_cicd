@@ -63,10 +63,10 @@ jobs:
       # 8. Deploy to Kubernetes
       - name: Deploy to Kubernetes
         run: |
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
-          kubectl apply -f k8s/configmap.yaml
-          kubectl apply -f k8s/hello-api.xml
+          kubectl apply -f wso2mi-deployment.yml
+          kubectl apply -f wso2mi-service.yml
+          kubectl apply -f hello-api-config.yml
+          kubectl apply -f hello-api.xml
 
       # 9. Wait for deployment to be ready
       - name: Wait for deployment to be ready
