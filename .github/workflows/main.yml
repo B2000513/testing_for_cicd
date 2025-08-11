@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}   # Will be converted to lowercase
+  IMAGE_NAME_LC: b2000513/testing_for_cicd
   IMAGE_TAG: latest
   KUBE_NAMESPACE: ian
   DEPLOYMENT_NAME: wso2mi-deployment
@@ -19,13 +19,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Lowercase IMAGE_NAME
-        run: |
-          echo "IMAGE_NAME_LC=${IMAGE_NAME,,}" >> $GITHUB_ENV
-
+      # 2. Log in to GHCR
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -33,26 +31,36 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # 3. Build Docker image (point to correct Dockerfile)
       - name: Build Docker image
         run: |
-          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }} 
-          -f deployment/docker/Dockerfile deployment/docker
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }} \
+            -f deployment/docker/Dockerfile deployment/docker
 
-
+      # 4. Push Docker image
       - name: Push Docker image
         run: |
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}
 
+      # 5. Set up kubectl
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
         with:
           version: 'latest'
 
+      # 6. Configure kubectl with provided kubeconfig
       - name: Configure kubectl
         run: |
           mkdir -p $HOME/.kube
           echo "${{ secrets.KUBECONFIG_CONTENT }}" > $HOME/.kube/config
 
+      # 7. Update deployment.yaml with new image tag
+      - name: Update Kubernetes manifests with new image
+        run: |
+          sed -i "s|image: .*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:${{ env.IMAGE_TAG }}|g" k8s/deployment.yaml
+
+      # 8. Deploy to Kubernetes
       - name: Deploy to Kubernetes
         run: |
           kubectl apply -f k8s/deployment.yaml
@@ -60,10 +68,12 @@ jobs:
           kubectl apply -f k8s/configmap.yaml
           kubectl apply -f k8s/hello-api.xml
 
+      # 9. Wait for deployment to be ready
       - name: Wait for deployment to be ready
         run: |
           kubectl rollout status deployment/${{ env.DEPLOYMENT_NAME }} -n ${{ env.KUBE_NAMESPACE }} --timeout=120s
 
+      # 10. Test helloAPI
       - name: Test helloAPI
         run: |
           NODE_PORT=$(kubectl get svc ${{ env.SERVICE_NAME }} -n ${{ env.KUBE_NAMESPACE }} -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}')
